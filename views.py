@@ -1,25 +1,42 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Course, Enrollment, Submission, Choice
+from django.contrib.auth.decorators import login_required
 
+@login_required
 def submit_exam(request, course_id):
     """
     Handles exam submission:
-    - Gets selected choices from POST request
     - Creates a Submission object
-    - Redirects to the exam result page
+    - Associates selected choices
+    - Redirects to show_exam_result with the submission ID
     """
+    course = get_object_or_404(Course, pk=course_id)
+    enrollment = get_object_or_404(Enrollment, user=request.user, course=course)
+
     if request.method == 'POST':
-        selected_choices = request.POST.getlist('choice')
-        enrollment = Enrollment.objects.get(user=request.user, course_id=course_id)
+        # Get selected choices from POST data
+        selected_choice_ids = request.POST.getlist('choice')
 
+        # Create a new Submission object linked to this enrollment
         submission = Submission.objects.create(enrollment=enrollment)
-        submission.choices.set(selected_choices)
+        
+        # Associate the selected choices with the submission
+        submission.choices.set(selected_choice_ids)
+        
+        # Redirect to the show_exam_result view with the submission.id
+        return redirect('exam_result', submission_id=submission.id)
 
-        return redirect('exam_result', submission.id)
+    # If GET request, redirect to course details page
+    return redirect('course_detail', course_id=course.id)
 
+
+@login_required
 def show_exam_result(request, submission_id):
     """
-    Evaluates the submitted exam and renders the result template.
+    Displays the exam result:
+    - Retrieves submission and related course
+    - Calculates total and obtained score
+    - Renders exam_result.html
     """
     submission = get_object_or_404(Submission, pk=submission_id)
     course = submission.enrollment.course
