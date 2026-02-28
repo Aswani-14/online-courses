@@ -1,43 +1,22 @@
 from django.shortcuts import render, get_object_or_404, redirect
-from .models import Course, Enrollment, Submission, Choice
 from django.contrib.auth.decorators import login_required
+from .models import Course, Enrollment, Submission, Choice
 
 @login_required
 def submit_exam(request, course_id):
-    """
-    Handles exam submission:
-    - Creates a Submission object
-    - Associates selected choices
-    - Redirects to show_exam_result with the submission ID
-    """
     course = get_object_or_404(Course, pk=course_id)
     enrollment = get_object_or_404(Enrollment, user=request.user, course=course)
 
     if request.method == 'POST':
-        # Get selected choices from POST data
         selected_choice_ids = request.POST.getlist('choice')
-
-        # Create a new Submission object linked to this enrollment
         submission = Submission.objects.create(enrollment=enrollment)
-        
-        # Associate the selected choices with the submission
         submission.choices.set(selected_choice_ids)
-        
-        # Redirect to the show_exam_result view with the submission.id
         return redirect('exam_result', submission_id=submission.id)
 
-    # If GET request, redirect to course details page
     return redirect('course_detail', course_id=course.id)
-
 
 @login_required
 def show_exam_result(request, submission_id):
-    """
-    Displays the exam result:
-    - Retrieves submission and related course
-    - Calculates total and obtained score
-    - Renders exam_result.html
-    """
     submission = get_object_or_404(Submission, pk=submission_id)
     course = submission.enrollment.course
 
@@ -48,7 +27,6 @@ def show_exam_result(request, submission_id):
         total_score += question.grade
         correct_choices = set(question.choice_set.filter(is_correct=True))
         selected_choices = set(submission.choices.filter(question=question))
-
         if correct_choices == selected_choices:
             obtained_score += question.grade
 
@@ -58,5 +36,4 @@ def show_exam_result(request, submission_id):
         'score': obtained_score,
         'total': total_score
     }
-
     return render(request, 'exam_result.html', context)
